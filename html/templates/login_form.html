@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ .title_prefix }} Login</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<form method="POST" action="{{ .send_to }}" class="form-inline">
+
+    <input type="hidden" name="csrf_token" value="{{ .token }}">
+
+    <header>
+        <h2>Login</h2>
+    </header>
+
+    <div>
+        <label class="desc" for="username">Username</label>
+        <div>
+            <input id="username" name="username" type="text" class="field text fn" value="" placeholder="username" tabindex="1">
+        </div>
+    </div>
+
+    <div>
+        <label class="desc" for="password">Password</label>
+        <div>
+            <input id="password" name="password" type="password" value="" placeholder="password" tabindex="2">
+        </div>
+    </div>
+    {{ if .seperate_admin }}
+    <div>
+        <label class="desc">Login Type</label>
+        <div>
+            <input id="radioUser" name="radioUserAdmin" type="radio" value="user" tabindex="3" checked="checked">
+            <label class="choice" for="radioUser">User</label>
+
+            <input id="radioAdmin" name="radioUserAdmin" type="radio" value="admin" tabindex="4">
+            <label class="choice" for="radioAdmin">Admin</label>
+        </div>
+    </div>
+    {{ end }}
+
+    {{ if .invalid }}
+    <p class="login-warning">Login failed: {{ .invalid }}</p>
+    {{ else }}
+    <p class="login-warning">&nbsp;</p>
+    {{ end }}
+
+    <div>
+        <div>
+            <input id="submit" name="submit" type="submit" class="button-link" value="Submit" tabindex="5">
+        </div>
+    </div>
+
+</form>
+
+</body>
+</html>

@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ .title_prefix}} Change Password</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<header>
+    <h2>Change Password</h2>
+    <div class=box>
+        <p class="logout"> <a href="{{ .base_url }}/logout">Logout</a></p>
+    </div>
+</header>
+
+
+<form method="POST" action="{{ .send_to }}" class="form-inline">
+
+    <input type="hidden" name="csrf_token" value="{{ .token }}">
+    <div>
+        <label class="desc" for="pwd_old">Old password</label>
+        <div>
+            <input id="pwd_old" name="pwd_old" type="password" class="field text fn" value="" placeholder="old password" tabindex="1">
+        </div>
+    </div>
+
+    <div>
+        <label class="desc" for="pwd_new">New password</label>
+        <div>
+            <input id="pwd_new" name="pwd_new" type="password" value="" placeholder="new password" tabindex="2">
+        </div>
+    </div>
+
+     <div>
+        <label class="desc" for="pwd_new2">Confirm new password</label>
+        <div>
+            <input id="pwd_new2" name="pwd_new2" type="password" value="" placeholder="new password" tabindex="3">
+        </div>
+    </div>
+
+    {{ if .invalid }}
+    <p class="login-warning">Password change failed: {{ .invalid }}</p>
+    {{ else }}
+    <p class="login-warning">&nbsp;</p>
+    {{ end }}
+
+    <div>
+        <div>
+            <input id="submit" name="submit" type="submit" class="button-link" value="Submit" tabindex="4">
+        </div>
+    </div>
+
+</form>
+
+</body>
+</html>

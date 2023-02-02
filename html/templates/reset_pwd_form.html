@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ .TitlePrefix}} Reset Password</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<header>
+    <h2>Reset Password</h2>
+    <div class=box>
+        <p class="logout"> <a href="{{ .BaseUrl }}/logout">Logout</a></p>
+    </div>
+</header>
+
+<form method="POST" action="{{ .SendTo }}" class="form-inline">
+
+    <input type="hidden" name="csrf_token" value="{{ .Token }}">
+
+    <div>
+        <label class="desc" for="user_select">User</label>
+        <div>
+            <select id="user_select" name="user_select">
+                {{ range .Users }}
+                <option value="{{ . }}">{{ . }}</option>
+                {{ end }}
+            </select>
+        </div>
+    </div>
+
+    <div>
+        <label class="desc" for="pwd_new">New password</label>
+        <div>
+            <input id="pwd_new" name="pwd_new" type="password" value="" placeholder="new password" tabindex="2">
+        </div>
+    </div>
+
+     <div>
+        <label class="desc" for="pwd_new2">Confirm new password</label>
+        <div>
+            <input id="pwd_new2" name="pwd_new2" type="password" value="" placeholder="new password" tabindex="3">
+        </div>
+    </div>
+
+    {{ if .Error }}
+    <p class="login-warning">Password change failed: {{ .ErrorMsg }}</p>
+    {{ else }}
+    <p class="login-warning">&nbsp;</p>
+    {{ end }}
+
+    <div>
+        <div>
+            <input id="submit" name="submit" type="submit" class="button-link" value="Submit" tabindex="4">
+        </div>
+    </div>
+
+</form>
+
+</body>
+</html>
