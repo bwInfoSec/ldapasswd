@@ -1,4 +1,6 @@
-![Build Test](https://github.com/bwinfosec/ldapasswd/actions/workflows/build.yml/badge.svg)
+[![Build Test](https://github.com/bwInfoSec/ldapasswd/actions/workflows/build.yml/badge.svg)](https://github.com/bwInfoSec/ldapasswd/actions/workflows/build.yml)
+
+![Screenshots](doc/images/screenshots.gif)
 
 # ldapasswd
 
