@@ -3,9 +3,7 @@ module goldap
 go 1.16
 
 require (
-	github.com/go-asn1-ber/asn1-ber v1.5.3 // indirect
 	github.com/go-ldap/ldap v3.0.3+incompatible
-	github.com/go-ldap/ldap/v3 v3.3.0 // indirect
 	github.com/go-playground/validator/v10 v10.4.1
 	github.com/justinas/nosurf v1.1.1
 	github.com/miscreant/miscreant.go v0.0.0-20200214223636-26d376326b75
