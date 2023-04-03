@@ -82,14 +82,8 @@ func generateRuntimeConfig(rconfig *RuntimeConfig) *RuntimeConfig {
 	// load templates:
 	//
 	rconfig.Templates = make(map[string]*template.Template)
-	// index.html
-	templateStr, err := templatedWebContent.ReadFile("html/templates/index.html")
-	if err != nil {
-		log.Fatal().Err(err).Msg("generateRuntimeConfig")
-	}
-	rconfig.Templates["index"] = template.Must(template.New("index").Parse(string(templateStr)))
 	// redirect:
-	templateStr, err = templatedWebContent.ReadFile("html/templates/redirect.html")
+	templateStr, err := templatedWebContent.ReadFile("html/templates/redirect.html")
 	if err != nil {
 		log.Fatal().Err(err).Msg("generateRuntimeConfig")
 	}
@@ -100,18 +94,18 @@ func generateRuntimeConfig(rconfig *RuntimeConfig) *RuntimeConfig {
 		log.Fatal().Err(err).Msg("generateRuntimeConfig")
 	}
 	rconfig.Templates["login_form"] = template.Must(template.New("login_form").Parse(string(templateStr)))
-	// settings_menu
-	templateStr, err = templatedWebContent.ReadFile("html/templates/settings_menu.html")
-	if err != nil {
-		log.Fatal().Err(err).Msg("generateRuntimeConfig")
-	}
-	rconfig.Templates["settings_menu"] = template.Must(template.New("settings_menu").Parse(string(templateStr)))
 	// chpwd_form
 	templateStr, err = templatedWebContent.ReadFile("html/templates/change_pwd_form.html")
 	if err != nil {
 		log.Fatal().Err(err).Msg("generateRuntimeConfig")
 	}
 	rconfig.Templates["chpwd_form"] = template.Must(template.New("change_pwd_form").Parse(string(templateStr)))
+	// chpwd_success
+	templateStr, err = templatedWebContent.ReadFile("html/templates/change_pwd_success.html")
+	if err != nil {
+		log.Fatal().Err(err).Msg("generateRuntimeConfig")
+	}
+	rconfig.Templates["chpwd_success"] = template.Must(template.New("change_pwd_success").Parse(string(templateStr)))
 
 	// reset_pwd_form
 	templateStr, err = templatedWebContent.ReadFile("html/templates/reset_pwd_form.html")

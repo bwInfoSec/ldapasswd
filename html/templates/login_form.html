@@ -3,58 +3,48 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" href="/bwinfosec_favicon.ico">
     <title>{{ .title_prefix }} Login</title>
-    <link rel="stylesheet" href="/style.css">
+    <link rel="stylesheet" href="/bootstrap.min.css">
 </head>
 <body>
+    <div class="container py-5 h-100">
+        <div class="row d-flex justify-content-center align-items-center h-100">
+            <div class="col-12 col-md-8 col-lg-6 col-xl-5">
+                <div class="card shadow-2-strong" style="border-radius: 1rem;">
+                    <div class="card-body p-5 text-center my-3">
+                        <img src="logo.svg" class="w-100 h-25">
+                        <h3 class="my-3">To change your password please sign in</h3>
+                        <form method="POST" action="{{ .send_to }}" class="form-inline">
 
-<form method="POST" action="{{ .send_to }}" class="form-inline">
+                            <input type="hidden" name="csrf_token" value="{{ .token }}">
+                            <input id="username" name="username" type="text" value="" placeholder="username" tabindex="1" class="w-100 my-3">
+                            <input id="password" name="password" type="password" value="" placeholder="password" tabindex="2" class="w-100">
 
-    <input type="hidden" name="csrf_token" value="{{ .token }}">
+                            {{ if .seperate_admin }}
+                            <div>
+                                <label class="desc">Login Type</label>
+                                <div>
+                                    <input id="radioUser" name="radioUserAdmin" type="radio" value="user" tabindex="3" checked="checked">
+                                    <label class="choice" for="radioUser">User</label>
 
-    <header>
-        <h2>Login</h2>
-    </header>
+                                    <input id="radioAdmin" name="radioUserAdmin" type="radio" value="admin" tabindex="4">
+                                    <label class="choice" for="radioAdmin">Admin</label>
+                                </div>
+                            </div>
+                            {{ end }}
 
-    <div>
-        <label class="desc" for="username">Username</label>
-        <div>
-            <input id="username" name="username" type="text" class="field text fn" value="" placeholder="username" tabindex="1">
+                            {{ if .invalid }}
+                            <p class="text-danger">Login failed: {{ .invalid }}</p>
+                            {{ else }}
+                            <p class="login-warning">&nbsp;</p>
+                            {{ end }}
+                            <input id="submit" name="submit" type="submit" class="btn w-100" value="Submit" tabindex="5">
+                        </form>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
-
-    <div>
-        <label class="desc" for="password">Password</label>
-        <div>
-            <input id="password" name="password" type="password" value="" placeholder="password" tabindex="2">
-        </div>
-    </div>
-    {{ if .seperate_admin }}
-    <div>
-        <label class="desc">Login Type</label>
-        <div>
-            <input id="radioUser" name="radioUserAdmin" type="radio" value="user" tabindex="3" checked="checked">
-            <label class="choice" for="radioUser">User</label>
-
-            <input id="radioAdmin" name="radioUserAdmin" type="radio" value="admin" tabindex="4">
-            <label class="choice" for="radioAdmin">Admin</label>
-        </div>
-    </div>
-    {{ end }}
-
-    {{ if .invalid }}
-    <p class="login-warning">Login failed: {{ .invalid }}</p>
-    {{ else }}
-    <p class="login-warning">&nbsp;</p>
-    {{ end }}
-
-    <div>
-        <div>
-            <input id="submit" name="submit" type="submit" class="button-link" value="Submit" tabindex="5">
-        </div>
-    </div>
-
-</form>
-
 </body>
 </html>
