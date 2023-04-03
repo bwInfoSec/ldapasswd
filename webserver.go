@@ -16,13 +16,13 @@ func RunWebServer() {
 	http.Handle("/"				, http.RedirectHandler(CConfig.Webserver.URL+"/login", http.StatusMovedPermanently))
 	http.Handle("/index.html"	, http.RedirectHandler(CConfig.Webserver.URL+"/login", http.StatusMovedPermanently))
 
-	http.HandleFunc("/bootstrap.min.css"		, serveCssBootstrap)
-	http.HandleFunc("/logo.svg"					, serveLogo)
-	http.HandleFunc("/bwinfosec_favicon.ico"	, serveFavicon)
-	http.HandleFunc("/login"					, loginHandler)
-	http.HandleFunc("/logout"					, logoutHandler)
-	http.HandleFunc("/changepwd"				, changePasswordHandler)
-	http.HandleFunc("/changepwdsuccess"			, changePasswordSuccessHandler)
+	http.HandleFunc("/bootstrap.min.css"	, serveCssBootstrap)
+	http.HandleFunc("/logo.svg"				, serveLogo)
+	http.HandleFunc("/favicon.ico"			, serveFavicon)
+	http.HandleFunc("/login"				, loginHandler)
+	http.HandleFunc("/logout"				, logoutHandler)
+	http.HandleFunc("/change_pwd"			, changePasswordHandler)
+	http.HandleFunc("/change_pwd_success"	, changePasswordSuccessHandler)
 
 	log.Info().Msg("Starting server at " + CConfig.Webserver.ListenAddress)
 	if err := http.ListenAndServe(CConfig.Webserver.ListenAddress, nosurf.New(http.DefaultServeMux)); err != nil {
@@ -33,15 +33,15 @@ func RunWebServer() {
 // ============== serve static stuff ================================
 func serveCssBootstrap(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Content-Type", "text/css")
-	fmt.Fprintf(w, "%v", RConfig.Static["bootstrap"])
+	w.Write(RConfig.Static["bootstrap"])
 }
 func serveLogo(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Content-Type", "image/svg+xml")
-	fmt.Fprintf(w, "%v", RConfig.Static["logo"])
+	w.Write(RConfig.Static["logo"])
 }
 func serveFavicon(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Content-Type", "image/x-icon")
-	fmt.Fprintf(w, "%v", RConfig.Static["favicon"])
+	w.Write(RConfig.Static["favicon"])
 }
 
 
@@ -78,7 +78,7 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 				log.Error().Err(err).Msg("authRequest")
 			}
 			http.SetCookie(w, &cookie)
-			http.Redirect(w, r, "/changepwd", http.StatusSeeOther)
+			http.Redirect(w, r, "/change_pwd", http.StatusSeeOther)
 			return
 		}
 	}
@@ -221,7 +221,7 @@ func changePasswordHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx := make(map[string]string)
 	ctx["token"] = nosurf.Token(r)
-	ctx["send_to"] = "/changepwd"
+	ctx["send_to"] = "/change_pwd"
 	ctx["base_url"] = CConfig.Webserver.URL
 	ctx["title_prefix"] = CConfig.Webserver.PageTitlePrefix
 
@@ -232,7 +232,7 @@ func changePasswordHandler(w http.ResponseWriter, r *http.Request) {
 		cookie, _ := getAuthCookie(w, r)
 		conn, err := LookupLdapConn(RConfig.LdapStore, cookie.LdapConnId)
 		if err != nil {
-			log.Info().Str("Info", "Error finding LDAP Connection for user "+cookie.Username).Err(err).Msg("changePasswordHandler")
+			log.Error().Str("Info", "Error finding LDAP Connection for logged in user ").Err(err).Msg("changePasswordHandler")
 			// Set URL to redirect to as CTX
 			ctx = map[string]string{"url": CConfig.Webserver.URL + "/login"}
 			// Execute Template
@@ -280,7 +280,7 @@ func changePasswordHandler(w http.ResponseWriter, r *http.Request) {
 			}
 			// Password change was successful
 			log.Info().Str("User", cookie.Username).Msg("changePasswordHandler: successfully changed password")
-			ctx = map[string]string{"url": CConfig.Webserver.URL + "/changepwdsuccess"}
+			ctx = map[string]string{"url": CConfig.Webserver.URL + "/change_pwd_success"}
 			err = RConfig.Templates["redirect"].Execute(w, ctx)
 			if err != nil {
 				log.Error().Err(err).Msg("changePasswordHandler")
