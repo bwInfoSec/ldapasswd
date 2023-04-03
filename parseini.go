@@ -15,7 +15,6 @@ type Config struct {
 		URL             string `validate:"required,url"`
 		ListenAddress   string `validate:"required,tcp_addr"`
 		PageTitlePrefix string `validate:"required"`
-		ActivateAdminTools bool   // do not validate because https://github.com/go-playground/validator/issues/319git
 	}
 	LDAP struct {
 		Server struct {
@@ -27,8 +26,6 @@ type Config struct {
 		AuthDefaults struct {
 			IdentifyingAttribute string `validate:"required"`
 			UserDnPostfix        string `validate:"required"`
-			SeperateAdminDn		 bool
-			AdminDnPostfix       string `validate:"required_if=SeperateAdminDN true"`
 		}
 	}
 }
@@ -97,11 +94,6 @@ func readWebserver(cfg *ini.File, configPointer *Config) error {
 	configPointer.Webserver.URL = cfg.Section("webserver").Key("url").String()
 	configPointer.Webserver.ListenAddress = cfg.Section("webserver").Key("listen_address").String()
 	configPointer.Webserver.PageTitlePrefix = cfg.Section("webserver").Key("page_title_prefix").String()
-	configPointer.Webserver.ActivateAdminTools, err = cfg.Section("webserver").Key("activate_admin_tools").Bool()
-	if err != nil {
-		log.Error().Err(err).Msg("readWebserver")
-		return err
-	}
 
 	return err
 }
@@ -111,14 +103,6 @@ func readLdapAuth(cfg *ini.File, configPointer *Config) error {
 
 	configPointer.LDAP.AuthDefaults.IdentifyingAttribute = cfg.Section("LDAP-auth").Key("primary_attribute").String()
 	configPointer.LDAP.AuthDefaults.UserDnPostfix = cfg.Section("LDAP-auth").Key("user_DN_postfix").String()
-	configPointer.LDAP.AuthDefaults.SeperateAdminDn, err = cfg.Section("LDAP-auth").Key("seperate_admin_DN").Bool()
-	if err != nil {
-		log.Error().Err(err).Msg("readLdapAuth")
-		return err
-	}
-
-	configPointer.LDAP.AuthDefaults.AdminDnPostfix = cfg.Section("LDAP-auth").Key("admin_DN_postfix").String()
-
 	return err
 }
 
