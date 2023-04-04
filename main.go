@@ -24,6 +24,7 @@ type RuntimeConfig struct {
 	NonceSize int
 	LdapStore *LdapConnStore
 	Templates map[string]*template.Template
+	Static map[string][]byte
 }
 
 func GenerateNonce(size int) ([]byte, error) {
@@ -51,9 +52,9 @@ func GenerateNonce(size int) ([]byte, error) {
 	return nonce, nil
 }
 
-// do some go embed magic to pack templates into the binary
-//go:embed html/templates/*
-var templatedWebContent embed.FS
+// do some go embed magic to pack web content into the binary
+//go:embed html/*
+var webContent embed.FS
 
 func generateRuntimeConfig(rconfig *RuntimeConfig) *RuntimeConfig {
 	// set nonce size
@@ -79,46 +80,57 @@ func generateRuntimeConfig(rconfig *RuntimeConfig) *RuntimeConfig {
 	rconfig.LdapStore.data = map[UUID]LdapConnEntry{}
 
 	//
-	// load templates:
+	// load static files:
 	//
-	rconfig.Templates = make(map[string]*template.Template)
-	// index.html
-	templateStr, err := templatedWebContent.ReadFile("html/templates/index.html")
+	rconfig.Static = make(map[string][]byte)
+	// bootstrap:
+	content, err := webContent.ReadFile("html/static/bootstrap.min.css")
 	if err != nil {
 		log.Fatal().Err(err).Msg("generateRuntimeConfig")
 	}
-	rconfig.Templates["index"] = template.Must(template.New("index").Parse(string(templateStr)))
+	rconfig.Static["bootstrap"] = content
+	// logo:
+	content, err = webContent.ReadFile("html/static/logo.svg")
+	if err != nil {
+		log.Fatal().Err(err).Msg("generateRuntimeConfig")
+	}
+	rconfig.Static["logo"] = content
+	// favicon:
+	content, err = webContent.ReadFile("html/static/favicon.ico")
+	if err != nil {
+		log.Fatal().Err(err).Msg("generateRuntimeConfig")
+	}
+	rconfig.Static["favicon"] = content
+
+
+	//
+	// load templates:
+	//
+	rconfig.Templates = make(map[string]*template.Template)
 	// redirect:
-	templateStr, err = templatedWebContent.ReadFile("html/templates/redirect.html")
+	templateStr, err := webContent.ReadFile("html/templates/redirect.html")
 	if err != nil {
 		log.Fatal().Err(err).Msg("generateRuntimeConfig")
 	}
 	rconfig.Templates["redirect"] = template.Must(template.New("redirect").Parse(string(templateStr)))
 	// login_form
-	templateStr, err = templatedWebContent.ReadFile("html/templates/login_form.html")
+	templateStr, err = webContent.ReadFile("html/templates/login_form.html")
 	if err != nil {
 		log.Fatal().Err(err).Msg("generateRuntimeConfig")
 	}
 	rconfig.Templates["login_form"] = template.Must(template.New("login_form").Parse(string(templateStr)))
-	// settings_menu
-	templateStr, err = templatedWebContent.ReadFile("html/templates/settings_menu.html")
-	if err != nil {
-		log.Fatal().Err(err).Msg("generateRuntimeConfig")
-	}
-	rconfig.Templates["settings_menu"] = template.Must(template.New("settings_menu").Parse(string(templateStr)))
 	// chpwd_form
-	templateStr, err = templatedWebContent.ReadFile("html/templates/change_pwd_form.html")
+	templateStr, err = webContent.ReadFile("html/templates/change_pwd_form.html")
 	if err != nil {
 		log.Fatal().Err(err).Msg("generateRuntimeConfig")
 	}
-	rconfig.Templates["chpwd_form"] = template.Must(template.New("change_pwd_form").Parse(string(templateStr)))
-
-	// reset_pwd_form
-	templateStr, err = templatedWebContent.ReadFile("html/templates/reset_pwd_form.html")
+	rconfig.Templates["change_pwd_form"] = template.Must(template.New("change_pwd_form").Parse(string(templateStr)))
+	// chpwd_success
+	templateStr, err = webContent.ReadFile("html/templates/change_pwd_success.html")
 	if err != nil {
 		log.Fatal().Err(err).Msg("generateRuntimeConfig")
 	}
-	rconfig.Templates["resetpwd_form"] = template.Must(template.New("reset_pwd_form").Parse(string(templateStr)))
+	rconfig.Templates["change_pwd_success"] = template.Must(template.New("change_pwd_success").Parse(string(templateStr)))
 
 	return rconfig
 }
