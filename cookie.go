@@ -5,21 +5,21 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"github.com/pkg/errors"
-	"github.com/rs/zerolog/log"
 	"math/big"
 	"net"
 	"net/http"
 	"time"
+
+	"github.com/pkg/errors"
+	"github.com/rs/zerolog/log"
 )
 
 type AuthCookie struct {
-	Username   string
-	LdapConnId UUID
-	Admin      bool
-	ExpiryTime int64
-	IP         string
-	PADDING    string
+	Username		 string
+	AdditionalData	 string
+	CreationTime	 int64
+	IP				 string
+	PADDING			 string
 }
 
 func getPadding() string {
@@ -35,30 +35,30 @@ func getPadding() string {
 	return s
 }
 
-func GenerateAuthCookie(user string, ldapconnid UUID, admin bool, remoteAddr string) (http.Cookie, error) {
+func GenerateAuthCookie(user string, additionalData string, remoteAddr string) (http.Cookie, AuthCookie, error) {
 	// extract client ip
 	ip, _, err := net.SplitHostPort(remoteAddr)
 	if err != nil {
-		log.Error().Err(err).Str("remoteAddr", remoteAddr).Msg("VerifyAuthCookie: remoteAddr is not IP:port")
-		return http.Cookie{}, err
+		err = errors.Wrap(err, "remoteAddr is not IP:port")
+		log.Error().Err(err).Str("remoteAddr", remoteAddr).Msg("GenerateAuthCookie")
+		return http.Cookie{}, AuthCookie{}, err
 	}
 
 	// create cookie data object
-	expiryTime := time.Now().Add(time.Duration(CConfig.Webserver.UserDeauthTime) * time.Minute)
-	cookieData := AuthCookie{user, ldapconnid, admin, expiryTime.UnixNano(), ip, getPadding()}
+	cookieData := AuthCookie{user, additionalData, time.Now().UnixMicro(), ip, getPadding()}
 
-	// serialize mdata into JSON
+	// serialize cookieData into JSON
 	jdata, err := json.Marshal(cookieData)
 	if err != nil {
 		log.Error().Err(err).Msg("GenerateAuthCookie")
-		return http.Cookie{}, err
+		return http.Cookie{}, AuthCookie{}, err
 	}
 
 	// generate nonce for encrytion
 	nonce, err := GenerateNonce(RConfig.NonceSize)
 	if err != nil {
 		log.Error().Err(err).Msg("GenerateAuthCookie")
-		return http.Cookie{}, err
+		return http.Cookie{}, AuthCookie{}, err
 	}
 
 	// encrypt jdata
@@ -69,7 +69,7 @@ func GenerateAuthCookie(user string, ldapconnid UUID, admin bool, remoteAddr str
 	// encode data base64
 	encCookie := base64.URLEncoding.EncodeToString(encData)
 
-	return http.Cookie{HttpOnly: true, Name: "auth", Value: encCookie, Path: "/"}, nil
+	return http.Cookie{HttpOnly: true, Name: "auth", Value: encCookie, Path: "/"}, cookieData, nil
 }
 
 func DecodeAuthCookie(cookie *http.Cookie) (*AuthCookie, error) {
@@ -113,45 +113,38 @@ func DecodeAuthCookie(cookie *http.Cookie) (*AuthCookie, error) {
 	return authCookie, nil
 }
 
-func VerifyAuthCookie(cookie *AuthCookie, remoteAddr string) (bool, error) {
-	var ok = true
-	if cookie.ExpiryTime < time.Now().UnixNano() {
-		log.Info().Int64("now", time.Now().UnixNano()).Int64("expires", cookie.ExpiryTime).
-			Interface("cookie", cookie).Msg("VerifyAuthCookie: cookie expired")
-		ok = false
+func (cookie *AuthCookie) VerifyExpired(timeValid time.Duration) error {
+	if time.UnixMicro(cookie.CreationTime).Add(timeValid).Before(time.Now()) {
+		err := errors.New("cookie expired")
+		log.Debug().Interface("cookie", cookie).Err(err).Msg("AuthCookie.VerifyExpired")
+		return err
 	}
-	ip, _, err := net.SplitHostPort(remoteAddr)
-	if err != nil {
-		errStr := "VerifyAuthCookie: remoteAddr is not IP:port"
-		log.Error().Err(err).Str("remoteAddr", remoteAddr).Msg(errStr)
-		return false, errors.Wrap(err, errStr)
-	}
-	if cookie.IP != ip {
-		log.Info().Interface("cookie", cookie).Msg("VerifyAuthCookie: client ip changed")
-		ok = false
-	}
-	return ok, nil
+	return nil
 }
 
-func RenewAuthCookie(cookie *AuthCookie, remoteAddr string) (http.Cookie, error) {
-	ok, err := VerifyAuthCookie(cookie, remoteAddr)
+func (cookie *AuthCookie) VerifyRemote(remoteAddr string) error {
+	ip, _, err := net.SplitHostPort(remoteAddr)
 	if err != nil {
-		log.Error().Err(err).Msg("RenewAuthCookie")
-		return http.Cookie{}, err
+		err = errors.Wrap(err, "remoteAddr is not IP:port")
+		log.Debug().Err(err).Interface("cookie", cookie).Str("remoteAddr", remoteAddr).Msg("AuthCookie.VerifyRemote")
+		return err
 	}
-	if !ok {
-		err = fmt.Errorf("cookie verification failed")
-		log.Info().Err(err).Msg("RenewAuthCookie")
-		return http.Cookie{}, err
+	if cookie.IP != ip {
+		err = errors.New("client ip changed")
+		log.Debug().Err(err).Interface("cookie", cookie).Str("remoteAddr", remoteAddr).Msg("AuthCookie.VerifyRemote")
+		return err
 	}
-	newCookie, err := GenerateAuthCookie(cookie.Username, cookie.LdapConnId, cookie.Admin, remoteAddr)
+	return nil
+}
+
+func (cookie *AuthCookie) Renew() (http.Cookie, AuthCookie, error) {
+	newCookie, rawCookie, err := GenerateAuthCookie(cookie.Username, cookie.AdditionalData, cookie.IP)
 	if err != nil {
-		log.Error().Err(err).Msg("RenewAuthCookie")
-		return http.Cookie{}, err
+		log.Debug().Err(err).Msg("AuthCookie.Renew")
 	}
-	return newCookie, nil
+	return newCookie, rawCookie, err
 }
 
 func GetDeauthCookie() *http.Cookie {
-	return &http.Cookie{HttpOnly: true, Name: "auth", Value: "RESET", Path: "/"}
+	return &http.Cookie{HttpOnly: true, Name: "auth", Value: "RSET", Path: "/"}
 }
