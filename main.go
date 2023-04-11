@@ -22,7 +22,7 @@ import (
 type RuntimeConfig struct {
 	Cipher    cipher.AEAD
 	NonceSize int
-	LdapStore *LdapConnStore
+	UserDataStore AuthStore
 	Templates map[string]*template.Template
 	Static map[string][]byte
 }
@@ -74,10 +74,8 @@ func generateRuntimeConfig(rconfig *RuntimeConfig) *RuntimeConfig {
 	// set crypto context
 	rconfig.Cipher = aessiv
 
-	// generate LDAP connection store
-	rconfig.LdapStore = new(LdapConnStore)
-	rconfig.LdapStore.Lock = sync.RWMutex{}
-	rconfig.LdapStore.data = map[UUID]LdapConnEntry{}
+	// generate UserDataStore connection store
+	rconfig.UserDataStore = AuthStore{lock: sync.RWMutex{}, userData: map[[32]byte]AuthStoreEntry{}}
 
 	//
 	// load static files:
@@ -138,6 +136,15 @@ func generateRuntimeConfig(rconfig *RuntimeConfig) *RuntimeConfig {
 var RConfig = new(RuntimeConfig)
 var CConfig = new(Config)
 
+func cleanupUserData() {
+	d := time.Duration(CConfig.Webserver.UserDeauthTime) * time.Minute
+
+	for {
+		time.Sleep(d/2)
+		RConfig.UserDataStore.Cleanup(d)
+	}
+}
+
 func main() {
 	err := error(nil)
 	// setup logging
@@ -163,6 +170,9 @@ func main() {
 
 	// create global runtime config
 	generateRuntimeConfig(RConfig)
+
+	// schedule constant cleanup
+	go cleanupUserData()
 
 	// start webserver
 	RunWebServer()
