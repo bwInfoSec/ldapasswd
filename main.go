@@ -13,6 +13,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"regexp"
 
 	"github.com/miscreant/miscreant.go"
 	"github.com/rs/zerolog"
@@ -25,6 +26,8 @@ type RuntimeConfig struct {
 	UserDataStore AuthStore
 	Templates map[string]*template.Template
 	Static map[string][]byte
+	DeauthDuration time.Duration
+	IpRegex *regexp.Regexp
 }
 
 func GenerateNonce(size int) ([]byte, error) {
@@ -76,6 +79,12 @@ func generateRuntimeConfig(rconfig *RuntimeConfig) *RuntimeConfig {
 
 	// generate UserDataStore connection store
 	rconfig.UserDataStore = AuthStore{lock: sync.RWMutex{}, userData: map[[32]byte]AuthStoreEntry{}}
+
+	// set DeauthDuration
+	rconfig.DeauthDuration = time.Duration(CConfig.Webserver.UserDeauthTime) * time.Minute
+
+	// set IpRegexp
+	rconfig.IpRegex = regexp.MustCompile(`((25[0-5]|(2[0-4]|1\d|[1-9]|)\d)\.?\b){4}`)
 
 	//
 	// load static files:
@@ -137,11 +146,10 @@ var RConfig = new(RuntimeConfig)
 var CConfig = new(Config)
 
 func cleanupUserData() {
-	d := time.Duration(CConfig.Webserver.UserDeauthTime) * time.Minute
 
 	for {
-		time.Sleep(d/2)
-		RConfig.UserDataStore.Cleanup(d)
+		time.Sleep(RConfig.DeauthDuration/2)
+		RConfig.UserDataStore.Cleanup(RConfig.DeauthDuration)
 	}
 }
 

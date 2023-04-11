@@ -6,10 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
-	"net"
 	"net/http"
 	"time"
-
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 )
@@ -37,12 +35,13 @@ func getPadding() string {
 
 func GenerateAuthCookie(user string, additionalData string, remoteAddr string) (http.Cookie, AuthCookie, error) {
 	// extract client ip
-	ip, _, err := net.SplitHostPort(remoteAddr)
-	if err != nil {
-		err = errors.Wrap(err, "remoteAddr is not IP:port")
+	_ip := RConfig.IpRegex.Find([]byte(remoteAddr))
+	if _ip == nil {
+		err := errors.New("remoteAddr is not IP:port")
 		log.Error().Err(err).Str("remoteAddr", remoteAddr).Msg("GenerateAuthCookie")
 		return http.Cookie{}, AuthCookie{}, err
 	}
+	ip := string(_ip)
 
 	// create cookie data object
 	cookieData := AuthCookie{user, additionalData, time.Now().UnixMicro(), ip, getPadding()}
@@ -123,14 +122,17 @@ func (cookie *AuthCookie) VerifyExpired(timeValid time.Duration) error {
 }
 
 func (cookie *AuthCookie) VerifyRemote(remoteAddr string) error {
-	ip, _, err := net.SplitHostPort(remoteAddr)
-	if err != nil {
-		err = errors.Wrap(err, "remoteAddr is not IP:port")
-		log.Debug().Err(err).Interface("cookie", cookie).Str("remoteAddr", remoteAddr).Msg("AuthCookie.VerifyRemote")
+	// extract client ip
+	_ip := RConfig.IpRegex.Find([]byte(remoteAddr))
+	if _ip == nil {
+		err := errors.New("remoteAddr is not IP:port")
+		log.Error().Err(err).Interface("cookie", cookie).Str("remoteAddr", remoteAddr).Msg("AuthCookie.VerifyRemote")
 		return err
 	}
+	ip := string(_ip)
+
 	if cookie.IP != ip {
-		err = errors.New("client ip changed")
+		err := errors.New("client ip changed")
 		log.Debug().Err(err).Interface("cookie", cookie).Str("remoteAddr", remoteAddr).Msg("AuthCookie.VerifyRemote")
 		return err
 	}

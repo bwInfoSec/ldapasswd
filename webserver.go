@@ -63,20 +63,26 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 
 		username := r.FormValue("username")
 		password := r.FormValue("password")
-		claimsAdmin := false
 
 		dn := fmt.Sprintf("%s=%s,", CConfig.LDAP.AuthDefaults.IdentifyingAttribute, username)
 		dn += CConfig.LDAP.AuthDefaults.UserDnPostfix
 
-		id, err := AddLdapConn(RConfig.LdapStore, dn, password)
+		conn, err := CreateLdapConn(dn, password)
 		if err != nil {
 			log.Debug().Err(err).Str("r.RemoteAddr", r.RemoteAddr).Msg("loginHandler: access denied")
 			ctx["invalid"] = "Invalid Credentials!"
 		} else {
-			cookie, err := GenerateAuthCookie(username, id, claimsAdmin, r.RemoteAddr)
+			cookie, cookieData, err := GenerateAuthCookie(username, "", r.RemoteAddr)
 			if err != nil {
-				log.Error().Err(err).Msg("authRequest")
+				log.Error().Err(err).Msg("loginHandler")
+				return
 			}
+			_, err = RConfig.UserDataStore.AddFromCookie(cookieData, conn)
+			if err != nil {
+				log.Error().Err(err).Msg("loginHandler")
+				return
+			}
+
 			http.SetCookie(w, &cookie)
 			http.Redirect(w, r, "/change_pwd", http.StatusSeeOther)
 			return
@@ -137,7 +143,7 @@ func logout(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			err = LdapConnStoreDeleteEntry(RConfig.LdapStore, decCookie.LdapConnId)
+			_, err = RConfig.UserDataStore.PopUserDataFromCookie(decCookie)
 			if err != nil {
 				log.Error().Stack().Err(err).Msg("logout")
 			}
@@ -159,35 +165,51 @@ func getAuthCookie(w http.ResponseWriter, r *http.Request) (*AuthCookie, error) 
 		if c.Name == "auth" {
 			decCookie, err := DecodeAuthCookie(c)
 			if err != nil || decCookie == nil {
-				log.Error().Stack().Err(err).Msg("getAuthCookie")
+				log.Error().Err(err).Msg("getAuthCookie")
+				logout(w, r)
 				return nil, err
 			}
 
-			ok, err := VerifyAuthCookie(decCookie, r.RemoteAddr)
-
-			if err == nil && ok == true {
-				// All is fine; requirement fulfilled
-
-				// update cookie
-				httpCookie, err := RenewAuthCookie(decCookie, r.RemoteAddr)
-				if err == nil {
-					http.SetCookie(w, &httpCookie)
-					return decCookie, nil
-				} else {
-					log.Error().Err(err).Stack().Msg("getAuthCookie")
-					return decCookie, err
-				}
-			}
-			// !! something is wrong !!
-			logout(w, r)
-			// error handling
+			err = decCookie.VerifyRemote(r.RemoteAddr)
 			if err != nil {
+				log.Error().Err(err).Msg("getAuthCookie")
+				logout(w, r)
 				return nil, err
 			}
-			// ok must be false
-			err = fmt.Errorf("cookie is invalid")
-			log.Debug().Err(err).Msg("checkLogin")
-			return decCookie, err
+			err = decCookie.VerifyExpired(RConfig.DeauthDuration)
+			if err != nil {
+				log.Error().Err(err).Msg("getAuthCookie")
+				logout(w, r)
+				return nil, err
+			}
+
+			// first sanity checks are ok; now check if cookie is consistent with local data
+
+			// remove old entry in local data store
+			userData, err := RConfig.UserDataStore.PopUserDataFromCookie(decCookie)
+			if err != nil {
+				log.Error().Err(err).Msg("getAuthCookie")
+				logout(w, r)
+				return nil, err
+			}
+
+			// everything seems fine; update cookie
+			httpCookie, rawCookie, err := decCookie.Renew()
+			if err != nil {
+				log.Error().Err(err).Msg("getAuthCookie")
+				logout(w, r)
+				return nil, err
+			}
+
+			// add entry back into local data store
+			_, err = RConfig.UserDataStore.AddFromCookie(rawCookie, userData)
+			if err != nil {
+				log.Error().Err(err).Msg("getAuthCookie")
+				logout(w, r)
+				return nil, err
+			}
+			http.SetCookie(w, &httpCookie)
+			return decCookie, nil
 		}
 	}
 	err := fmt.Errorf("user is not logged in")
@@ -230,8 +252,9 @@ func changePasswordHandler(w http.ResponseWriter, r *http.Request) {
 													POST
 		******************************************************************************************************/
 		cookie, _ := getAuthCookie(w, r)
-		conn, err := LookupLdapConn(RConfig.LdapStore, cookie.LdapConnId)
-		if err != nil {
+		_conn, _, err := RConfig.UserDataStore.GetUserDataFromCookie(cookie)
+		conn, ok := _conn.(*ldap.Conn)
+		if err != nil || ok != true {
 			log.Error().Str("Info", "Error finding LDAP Connection for logged in user ").Err(err).Msg("changePasswordHandler")
 			// Set URL to redirect to as CTX
 			ctx = map[string]string{"url": CConfig.Webserver.URL + "/login"}
