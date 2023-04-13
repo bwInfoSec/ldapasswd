@@ -13,20 +13,20 @@
             <div class="col-12 col-md-8 col-lg-6 col-xl-5">
                 <div class="card shadow-2-strong" style="border-radius: 1rem;">
                     <div class="card-body p-5 text-center my-3">
-                        <img src="logo.svg" class="w-100 h-25">
-                        <h3 class="my-3">To change your password please sign in</h3>
+                        <img src="logo.svg" class="w-100">
+                        <h3 class="my-3">Bitte melden Sie sich an, um Ihr Passwort zu ändern</h3>
                         <form method="POST" action="{{ .send_to }}" class="form-inline">
 
                             <input type="hidden" name="csrf_token" value="{{ .token }}">
-                            <input id="username" name="username" type="text" value="" placeholder="username" tabindex="1" class="w-100 my-3">
-                            <input id="password" name="password" type="password" value="" placeholder="password" tabindex="2" class="w-100">
+                            <input id="username" name="username" type="text" value="" placeholder="Nutzername" tabindex="1" class="w-100 my-3">
+                            <input id="password" name="password" type="password" value="" placeholder="Passwort" tabindex="2" class="w-100">
 
                             {{ if .invalid }}
                             <p class="text-danger">Login failed: {{ .invalid }}</p>
                             {{ else }}
                             <p class="login-warning">&nbsp;</p>
                             {{ end }}
-                            <input id="submit" name="submit" type="submit" class="btn w-100" value="Submit" tabindex="5">
+                            <input id="submit" name="submit" type="submit" class="btn w-100" value="Weiter" tabindex="5">
                         </form>
                     </div>
                 </div>
