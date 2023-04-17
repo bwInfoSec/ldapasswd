@@ -13,14 +13,14 @@
             <div class="col-12 col-md-8 col-lg-6 col-xl-5">
                 <div class="card shadow-2-strong" style="border-radius: 1rem;">
                     <div class="card-body p-5 text-center my-3">
-                        <img src="/logo.svg" class="w-100 h-25">
-                        <h3 class="my-3">To change your password, please fill out the form </h3>
+                        <img src="/logo.svg" class="w-100">
+                        <h3 class="my-3">Bitte füllen Sie das Formular aus, um Ihr Passwort zu ändern</h3>
                         <form method="POST" action="{{ .send_to }}" class="form-inline">
 
                             <input type="hidden" name="csrf_token" value="{{ .token }}">
-                            <input id="pwd_old" name="pwd_old" type="password" class="w-100 my-3" value="" placeholder="old password" tabindex="1">
-                            <input id="pwd_new" name="pwd_new" type="password" class="w-100 mb-3" value="" placeholder="new password" tabindex="2">
-                            <input id="pwd_new2" name="pwd_new2" type="password" class="w-100" value="" placeholder="confirm new password" tabindex="3">
+                            <input id="pwd_old" name="pwd_old" type="password" class="w-100 my-3" value="" placeholder="Altes Passwort" tabindex="1">
+                            <input id="pwd_new" name="pwd_new" type="password" class="w-100 mb-3" value="" placeholder="Neues Passwort" tabindex="2">
+                            <input id="pwd_new2" name="pwd_new2" type="password" class="w-100" value="" placeholder="Neues Passwort" tabindex="3">
 
                             {{ if .invalid }}
                             <p class="text-danger">Password change failed: {{ .invalid }}</p>
@@ -28,7 +28,7 @@
                             <p class="login-warning">&nbsp;</p>
                             {{ end }}
 
-                            <input id="submit" name="submit" type="submit" class="btn w-100 mb-3" value="Submit" tabindex="4">
+                            <input id="submit" name="submit" type="submit" class="btn w-100" value="Weiter" tabindex="4">
                         </form>
                         <!-- <div class=box>
                             <p class="logout"> <a href="{{ .base_url }}/logout">Logout</a></p>
