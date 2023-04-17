@@ -21,7 +21,7 @@ type AuthCookie struct {
 }
 
 func getPadding() string {
-	ri, err := rand.Int(rand.Reader, big.NewInt(32))
+	ri, err := rand.Int(rand.Reader, big.NewInt(64))
 	if err != nil {
 		return ""
 	}
@@ -46,18 +46,30 @@ func GenerateAuthCookie(user string, additionalData string, remoteAddr string) (
 	// create cookie data object
 	cookieData := AuthCookie{user, additionalData, time.Now().UnixMicro(), ip, getPadding()}
 
-	// serialize cookieData into JSON
-	jdata, err := json.Marshal(cookieData)
+	httpCookie, err := cookieData.ToHttpCookie()
 	if err != nil {
 		log.Error().Err(err).Msg("GenerateAuthCookie")
 		return http.Cookie{}, AuthCookie{}, err
 	}
 
+	return httpCookie, cookieData, nil
+}
+
+
+func (cookieData *AuthCookie) ToHttpCookie() (http.Cookie, error) {
+
+	// serialize cookieData into JSON
+	jdata, err := json.Marshal(cookieData)
+	if err != nil {
+		log.Error().Err(err).Msg("AuthCookie.ToHttpCookie")
+		return http.Cookie{}, err
+	}
+
 	// generate nonce for encrytion
 	nonce, err := GenerateNonce(RConfig.NonceSize)
 	if err != nil {
-		log.Error().Err(err).Msg("GenerateAuthCookie")
-		return http.Cookie{}, AuthCookie{}, err
+		log.Error().Err(err).Msg("AuthCookie.ToHttpCookie")
+		return http.Cookie{}, err
 	}
 
 	// encrypt jdata
@@ -68,7 +80,7 @@ func GenerateAuthCookie(user string, additionalData string, remoteAddr string) (
 	// encode data base64
 	encCookie := base64.URLEncoding.EncodeToString(encData)
 
-	return http.Cookie{HttpOnly: true, Name: "auth", Value: encCookie, Path: "/"}, cookieData, nil
+	return http.Cookie{HttpOnly: true, Name: "auth", Value: encCookie, Path: "/"}, nil
 }
 
 func DecodeAuthCookie(cookie *http.Cookie) (*AuthCookie, error) {
@@ -140,7 +152,8 @@ func (cookie *AuthCookie) VerifyRemote(remoteAddr string) error {
 }
 
 func (cookie *AuthCookie) Renew() (http.Cookie, AuthCookie, error) {
-	newCookie, rawCookie, err := GenerateAuthCookie(cookie.Username, cookie.AdditionalData, cookie.IP)
+	rawCookie := AuthCookie{cookie.Username, cookie.AdditionalData, time.Now().UnixMicro(), cookie.IP, cookie.PADDING}
+	newCookie, err := rawCookie.ToHttpCookie()
 	if err != nil {
 		log.Debug().Err(err).Msg("AuthCookie.Renew")
 	}

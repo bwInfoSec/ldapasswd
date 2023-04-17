@@ -256,6 +256,7 @@ func changePasswordHandler(w http.ResponseWriter, r *http.Request) {
 		conn, ok := _conn.(*ldap.Conn)
 		if err != nil || ok != true {
 			log.Error().Str("Info", "Error finding LDAP Connection for logged in user ").Err(err).Msg("changePasswordHandler")
+			RConfig.UserDataStore.Cleanup(RConfig.DeauthDuration)
 			// Set URL to redirect to as CTX
 			ctx = map[string]string{"url": CConfig.Webserver.URL + "/login"}
 			// Execute Template
