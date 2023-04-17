@@ -7,12 +7,6 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-
-// =========================================================================
-// REWRITE
-// =========================================================================
-
-
 func CreateLdapConn(dn string, password string) (*ldap.Conn, error) {
 
 	err := error(nil)
