@@ -13,6 +13,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"regexp"
 
 	"github.com/miscreant/miscreant.go"
 	"github.com/rs/zerolog"
@@ -22,9 +23,11 @@ import (
 type RuntimeConfig struct {
 	Cipher    cipher.AEAD
 	NonceSize int
-	LdapStore *LdapConnStore
+	UserDataStore AuthStore
 	Templates map[string]*template.Template
 	Static map[string][]byte
+	DeauthDuration time.Duration
+	IpRegex *regexp.Regexp
 }
 
 func GenerateNonce(size int) ([]byte, error) {
@@ -74,10 +77,14 @@ func generateRuntimeConfig(rconfig *RuntimeConfig) *RuntimeConfig {
 	// set crypto context
 	rconfig.Cipher = aessiv
 
-	// generate LDAP connection store
-	rconfig.LdapStore = new(LdapConnStore)
-	rconfig.LdapStore.Lock = sync.RWMutex{}
-	rconfig.LdapStore.data = map[UUID]LdapConnEntry{}
+	// generate UserDataStore connection store
+	rconfig.UserDataStore = AuthStore{lock: sync.RWMutex{}, userData: map[[32]byte]AuthStoreEntry{}}
+
+	// set DeauthDuration
+	rconfig.DeauthDuration = time.Duration(CConfig.Webserver.UserDeauthTime) * time.Minute
+
+	// set IpRegexp
+	rconfig.IpRegex = regexp.MustCompile(`((25[0-5]|(2[0-4]|1\d|[1-9]|)\d)\.?\b){4}`)
 
 	//
 	// load static files:
@@ -138,6 +145,14 @@ func generateRuntimeConfig(rconfig *RuntimeConfig) *RuntimeConfig {
 var RConfig = new(RuntimeConfig)
 var CConfig = new(Config)
 
+func cleanupUserData() {
+
+	for {
+		time.Sleep(RConfig.DeauthDuration/2)
+		RConfig.UserDataStore.Cleanup(RConfig.DeauthDuration)
+	}
+}
+
 func main() {
 	err := error(nil)
 	// setup logging
@@ -163,6 +178,9 @@ func main() {
 
 	// create global runtime config
 	generateRuntimeConfig(RConfig)
+
+	// schedule constant cleanup
+	go cleanupUserData()
 
 	// start webserver
 	RunWebServer()
