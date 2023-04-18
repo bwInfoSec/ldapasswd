@@ -99,6 +99,7 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func changePasswordSuccessHandler(w http.ResponseWriter, r *http.Request) {
+	requireLogin(w, r)
 	logout(w, r)
 	// Set URL to redirect to as CTX
 	ctx := make(map[string]string)

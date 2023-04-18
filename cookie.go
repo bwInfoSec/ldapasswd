@@ -104,6 +104,13 @@ func DecodeAuthCookie(cookie *http.Cookie) (AuthCookie, error) {
 		return authCookie, err
 	}
 
+
+	if len(encData) < RConfig.NonceSize {
+		err = errors.New("auth cookie too short")
+		log.Warn().Err(err).Msg("DecodeAuthCookie")
+		return authCookie, err
+	}
+
 	// extract nonce and encrypted JSON
 	nonce := encData[:RConfig.NonceSize]
 	encJdata := encData[RConfig.NonceSize:]
