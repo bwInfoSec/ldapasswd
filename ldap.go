@@ -54,7 +54,7 @@ func CreateLdapConn(dn string, password string) (*ldap.Conn, error) {
 	// Bind and authenticate
 	err = l.Bind(dn, password)
 	if err != nil {
-		log.Debug().Str("DN", dn).Err(err).Msg("GetLdapConn")
+		log.Warn().Stack().Str("DN", dn).Err(err).Msg("GetLdapConn")
 		return nil, err
 	}
 

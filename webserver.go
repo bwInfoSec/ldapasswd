@@ -69,17 +69,17 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 
 		conn, err := CreateLdapConn(dn, password)
 		if err != nil {
-			log.Debug().Err(err).Str("r.RemoteAddr", r.RemoteAddr).Msg("loginHandler: access denied")
+			log.Info().Err(err).Str("r.RemoteAddr", r.RemoteAddr).Msg("loginHandler: access denied")
 			ctx["invalid"] = "Invalid Credentials!"
 		} else {
 			cookie, cookieData, err := GenerateAuthCookie(username, "", r.RemoteAddr)
 			if err != nil {
-				log.Error().Err(err).Msg("loginHandler")
+				log.Error().Stack().Err(err).Msg("loginHandler")
 				return
 			}
 			_, err = RConfig.UserDataStore.AddFromCookie(cookieData, conn)
 			if err != nil {
-				log.Error().Err(err).Msg("loginHandler")
+				log.Error().Stack().Err(err).Msg("loginHandler")
 				return
 			}
 
@@ -107,7 +107,7 @@ func changePasswordSuccessHandler(w http.ResponseWriter, r *http.Request) {
 	// Execute Template
 	err := RConfig.Templates["change_pwd_success"].Execute(w, ctx)
 	if err != nil {
-		log.Error().Err(err).Msg("changePasswordSuccessHandler")
+		log.Error().Stack().Err(err).Msg("changePasswordSuccessHandler")
 		http.Error(w, "500 Internal Server Error", http.StatusInternalServerError)
 		return
 	}
@@ -124,7 +124,7 @@ func logoutHandler(w http.ResponseWriter, r *http.Request) {
 	// Execute Template
 	err := RConfig.Templates["redirect"].Execute(w, ctx)
 	if err != nil {
-		log.Error().Err(err).Msg("logoutHandler")
+		log.Error().Stack().Err(err).Msg("logoutHandler")
 		http.Error(w, "500 Internal Server Error", http.StatusInternalServerError)
 		return
 	}
@@ -133,13 +133,14 @@ func logoutHandler(w http.ResponseWriter, r *http.Request) {
 
 func logout(w http.ResponseWriter, r *http.Request) {
 	// search auth cookie
+	deauthCookie := GetDeauthCookie()
 	cookies := r.Cookies()
 	for _, c := range cookies {
 		if c.Name == "auth" {
 			decCookie, err := DecodeAuthCookie(c)
-			if err != nil || decCookie == nil {
+			if err != nil  {
 				log.Error().Stack().Err(err).Msg("logout")
-				http.SetCookie(w, GetDeauthCookie())
+				http.SetCookie(w, &deauthCookie)
 				return
 			}
 
@@ -147,40 +148,35 @@ func logout(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				log.Error().Stack().Err(err).Msg("logout")
 			}
-			http.SetCookie(w, GetDeauthCookie())
+			http.SetCookie(w, &deauthCookie)
 			return
 		}
 	}
 }
 
-func checkLogin(w http.ResponseWriter, r *http.Request) error {
-	_, err := getAuthCookie(w, r)
-	return err
-}
-
-func getAuthCookie(w http.ResponseWriter, r *http.Request) (*AuthCookie, error) {
+func checkLogin(w http.ResponseWriter, r *http.Request) (AuthCookie, error) {
 	// search and validate auth cookie
 	cookies := r.Cookies()
 	for _, c := range cookies {
 		if c.Name == "auth" {
 			decCookie, err := DecodeAuthCookie(c)
-			if err != nil || decCookie == nil {
-				log.Error().Err(err).Msg("getAuthCookie")
+			if err != nil {
+				log.Error().Stack().Err(err).Msg("getAuthCookie")
 				logout(w, r)
-				return nil, err
+				return decCookie, err
 			}
 
 			err = decCookie.VerifyRemote(r.RemoteAddr)
 			if err != nil {
-				log.Error().Err(err).Msg("getAuthCookie")
+				log.Error().Stack().Err(err).Msg("getAuthCookie")
 				logout(w, r)
-				return nil, err
+				return decCookie, err
 			}
 			err = decCookie.VerifyExpired(RConfig.DeauthDuration)
 			if err != nil {
-				log.Error().Err(err).Msg("getAuthCookie")
+				log.Error().Stack().Err(err).Msg("getAuthCookie")
 				logout(w, r)
-				return nil, err
+				return decCookie, err
 			}
 
 			// first sanity checks are ok; now check if cookie is consistent with local data
@@ -188,38 +184,39 @@ func getAuthCookie(w http.ResponseWriter, r *http.Request) (*AuthCookie, error) 
 			// remove old entry in local data store
 			userData, err := RConfig.UserDataStore.PopUserDataFromCookie(decCookie)
 			if err != nil {
-				log.Error().Err(err).Msg("getAuthCookie")
+				log.Error().Stack().Err(err).Msg("getAuthCookie")
 				logout(w, r)
-				return nil, err
+				return decCookie, err
 			}
 
 			// everything seems fine; update cookie
 			httpCookie, rawCookie, err := decCookie.Renew()
 			if err != nil {
-				log.Error().Err(err).Msg("getAuthCookie")
+				log.Error().Stack().Err(err).Msg("getAuthCookie")
 				logout(w, r)
-				return nil, err
+				return decCookie, err
 			}
 
 			// add entry back into local data store
 			_, err = RConfig.UserDataStore.AddFromCookie(rawCookie, userData)
 			if err != nil {
-				log.Error().Err(err).Msg("getAuthCookie")
+				log.Error().Stack().Err(err).Msg("getAuthCookie")
 				logout(w, r)
-				return nil, err
+				return decCookie, err
 			}
 			http.SetCookie(w, &httpCookie)
-			return decCookie, nil
+			return rawCookie, nil
 		}
 	}
 	err := fmt.Errorf("user is not logged in")
 	log.Debug().Err(err).Msg("checkLogin")
-	return nil, err
+	return AuthCookie{}, err
 }
 
-func requireLogin(w http.ResponseWriter, r *http.Request) error {
-	err := checkLogin(w, r)
+func requireLogin(w http.ResponseWriter, r *http.Request) (AuthCookie, error) {
+	authCookie, err := checkLogin(w, r)
 	if err != nil {
+		log.Debug().Err(err).Msg("requireLogin")
 		// Set URL to redirect to as CTX
 		ctx := make(map[string]string)
 		ctx["url"] = CConfig.Webserver.URL + "/login"
@@ -227,17 +224,17 @@ func requireLogin(w http.ResponseWriter, r *http.Request) error {
 		// Execute Template
 		err2 := RConfig.Templates["redirect"].Execute(w, ctx)
 		if err2 != nil {
-			log.Error().Err(err2).Msg("settingsMenuHandler")
+			log.Error().Stack().Err(err2).Msg("settingsMenuHandler")
 			http.Error(w, "500 Internal Server Error", http.StatusInternalServerError)
-			return err
+			return authCookie, err2
 		}
-		return err
+		return authCookie, err
 	}
-	return nil
+	return authCookie, nil
 }
 
 func changePasswordHandler(w http.ResponseWriter, r *http.Request) {
-	err := requireLogin(w, r)
+	authCookie, err := requireLogin(w, r)
 	if err != nil {
 		return
 	}
@@ -251,24 +248,22 @@ func changePasswordHandler(w http.ResponseWriter, r *http.Request) {
 		/******************************************************************************************************
 													POST
 		******************************************************************************************************/
-		cookie, _ := getAuthCookie(w, r)
-		_conn, _, err := RConfig.UserDataStore.GetUserDataFromCookie(cookie)
-		conn, ok := _conn.(*ldap.Conn)
-		if err != nil || ok != true {
-			log.Error().Str("Info", "Error finding LDAP Connection for logged in user ").Err(err).Msg("changePasswordHandler")
+		conn, err := RConfig.UserDataStore.GetUserDataFromCookie(authCookie)
+		if err != nil {
+			log.Error().Stack().Str("Info", "Error finding LDAP Connection for logged in user ").Err(err).Msg("changePasswordHandler")
 			RConfig.UserDataStore.Cleanup(RConfig.DeauthDuration)
 			// Set URL to redirect to as CTX
 			ctx = map[string]string{"url": CConfig.Webserver.URL + "/login"}
 			// Execute Template
 			err = RConfig.Templates["redirect"].Execute(w, ctx)
 			if err != nil {
-				log.Error().Err(err).Msg("changePasswordHandler")
+				log.Error().Stack().Err(err).Msg("changePasswordHandler")
 				http.Error(w, "500 Internal Server Error", http.StatusInternalServerError)
 				return
 			}
 			return
 		}
-		dn := fmt.Sprintf("%s=%s,", CConfig.LDAP.AuthDefaults.IdentifyingAttribute, cookie.Username)
+		dn := fmt.Sprintf("%s=%s,", CConfig.LDAP.AuthDefaults.IdentifyingAttribute, authCookie.Username)
 		dn += CConfig.LDAP.AuthDefaults.UserDnPostfix
 
 		if conn != nil {
@@ -303,7 +298,7 @@ func changePasswordHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			// Password change was successful
-			log.Info().Str("User", cookie.Username).Msg("changePasswordHandler: successfully changed password")
+			log.Info().Msg("changePasswordHandler: successfully changed password")
 			ctx = map[string]string{"url": CConfig.Webserver.URL + "/change_pwd_success"}
 			err = RConfig.Templates["redirect"].Execute(w, ctx)
 			if err != nil {

@@ -38,7 +38,7 @@ func GenerateAuthCookie(user string, additionalData string, remoteAddr string) (
 	_ip := RConfig.IpRegex.Find([]byte(remoteAddr))
 	if _ip == nil {
 		err := errors.New("remoteAddr is not IP:port")
-		log.Error().Err(err).Str("remoteAddr", remoteAddr).Msg("GenerateAuthCookie")
+		log.Error().Stack().Err(err).Str("remoteAddr", remoteAddr).Msg("GenerateAuthCookie")
 		return http.Cookie{}, AuthCookie{}, err
 	}
 	ip := string(_ip)
@@ -48,7 +48,7 @@ func GenerateAuthCookie(user string, additionalData string, remoteAddr string) (
 
 	httpCookie, err := cookieData.ToHttpCookie()
 	if err != nil {
-		log.Error().Err(err).Msg("GenerateAuthCookie")
+		log.Error().Stack().Err(err).Msg("GenerateAuthCookie")
 		return http.Cookie{}, AuthCookie{}, err
 	}
 
@@ -61,14 +61,14 @@ func (cookieData *AuthCookie) ToHttpCookie() (http.Cookie, error) {
 	// serialize cookieData into JSON
 	jdata, err := json.Marshal(cookieData)
 	if err != nil {
-		log.Error().Err(err).Msg("AuthCookie.ToHttpCookie")
+		log.Error().Stack().Err(err).Msg("AuthCookie.ToHttpCookie")
 		return http.Cookie{}, err
 	}
 
 	// generate nonce for encrytion
 	nonce, err := GenerateNonce(RConfig.NonceSize)
 	if err != nil {
-		log.Error().Err(err).Msg("AuthCookie.ToHttpCookie")
+		log.Error().Stack().Err(err).Msg("AuthCookie.ToHttpCookie")
 		return http.Cookie{}, err
 	}
 
@@ -83,14 +83,14 @@ func (cookieData *AuthCookie) ToHttpCookie() (http.Cookie, error) {
 	return http.Cookie{HttpOnly: true, Name: "auth", Value: encCookie, Path: "/"}, nil
 }
 
-func DecodeAuthCookie(cookie *http.Cookie) (*AuthCookie, error) {
+func DecodeAuthCookie(cookie *http.Cookie) (AuthCookie, error) {
 
-	authCookie := new(AuthCookie)
+	var authCookie AuthCookie
 
 	// check if cookie is 'auth' cookie
 	if cookie.Name != "auth" {
 		err := fmt.Errorf("cookie is not 'auth' cookie")
-		log.Error().Err(err).Msg("DecodeAuthCookie")
+		log.Error().Stack().Err(err).Msg("DecodeAuthCookie")
 		return authCookie, err
 	}
 
@@ -100,7 +100,7 @@ func DecodeAuthCookie(cookie *http.Cookie) (*AuthCookie, error) {
 	// base64 decode encrypted cookie
 	encData, err := base64.URLEncoding.DecodeString(encCookie)
 	if err != nil {
-		log.Error().Err(err).Msg("DecodeAuthCookie")
+		log.Error().Stack().Err(err).Msg("DecodeAuthCookie")
 		return authCookie, err
 	}
 
@@ -115,11 +115,13 @@ func DecodeAuthCookie(cookie *http.Cookie) (*AuthCookie, error) {
 	}
 
 	// deserialize JSON
-	err = json.Unmarshal(decJdata, authCookie)
-	if err != nil {
-		log.Error().Err(err).Msg("DecodeAuthCookie")
+	authCookiePtr := new(AuthCookie)
+	err = json.Unmarshal(decJdata, authCookiePtr)
+	if err != nil || authCookiePtr == nil{
+		log.Error().Stack().Err(err).Msg("DecodeAuthCookie")
 		return authCookie, err
 	}
+	authCookie = *authCookiePtr
 
 	return authCookie, nil
 }
@@ -127,7 +129,7 @@ func DecodeAuthCookie(cookie *http.Cookie) (*AuthCookie, error) {
 func (cookie *AuthCookie) VerifyExpired(timeValid time.Duration) error {
 	if time.UnixMicro(cookie.CreationTime).Add(timeValid).Before(time.Now()) {
 		err := errors.New("cookie expired")
-		log.Debug().Interface("cookie", cookie).Err(err).Msg("AuthCookie.VerifyExpired")
+		log.Warn().Interface("cookie", cookie).Err(err).Msg("AuthCookie.VerifyExpired")
 		return err
 	}
 	return nil
@@ -138,14 +140,14 @@ func (cookie *AuthCookie) VerifyRemote(remoteAddr string) error {
 	_ip := RConfig.IpRegex.Find([]byte(remoteAddr))
 	if _ip == nil {
 		err := errors.New("remoteAddr is not IP:port")
-		log.Error().Err(err).Interface("cookie", cookie).Str("remoteAddr", remoteAddr).Msg("AuthCookie.VerifyRemote")
+		log.Error().Stack().Err(err).Interface("cookie", cookie).Str("remoteAddr", remoteAddr).Msg("AuthCookie.VerifyRemote")
 		return err
 	}
 	ip := string(_ip)
 
 	if cookie.IP != ip {
 		err := errors.New("client ip changed")
-		log.Debug().Err(err).Interface("cookie", cookie).Str("remoteAddr", remoteAddr).Msg("AuthCookie.VerifyRemote")
+		log.Warn().Err(err).Interface("cookie", cookie).Str("remoteAddr", remoteAddr).Msg("AuthCookie.VerifyRemote")
 		return err
 	}
 	return nil
@@ -155,11 +157,11 @@ func (cookie *AuthCookie) Renew() (http.Cookie, AuthCookie, error) {
 	rawCookie := AuthCookie{cookie.Username, cookie.AdditionalData, time.Now().UnixMicro(), cookie.IP, cookie.PADDING}
 	newCookie, err := rawCookie.ToHttpCookie()
 	if err != nil {
-		log.Debug().Err(err).Msg("AuthCookie.Renew")
+		log.Warn().Err(err).Msg("AuthCookie.Renew")
 	}
 	return newCookie, rawCookie, err
 }
 
-func GetDeauthCookie() *http.Cookie {
-	return &http.Cookie{HttpOnly: true, Name: "auth", Value: "RSET", Path: "/"}
+func GetDeauthCookie() http.Cookie {
+	return http.Cookie{HttpOnly: true, Name: "auth", Value: "RSET", Path: "/"}
 }

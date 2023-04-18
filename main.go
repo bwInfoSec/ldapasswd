@@ -10,20 +10,22 @@ import (
 	"html/template"
 	"io"
 	"os"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
-	"regexp"
 
+	"github.com/go-ldap/ldap"
 	"github.com/miscreant/miscreant.go"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"github.com/rs/zerolog/pkgerrors"
 )
 
 type RuntimeConfig struct {
 	Cipher    cipher.AEAD
 	NonceSize int
-	UserDataStore AuthStore
+	UserDataStore AuthStore[*ldap.Conn]
 	Templates map[string]*template.Template
 	Static map[string][]byte
 	DeauthDuration time.Duration
@@ -78,7 +80,7 @@ func generateRuntimeConfig(rconfig *RuntimeConfig) *RuntimeConfig {
 	rconfig.Cipher = aessiv
 
 	// generate UserDataStore connection store
-	rconfig.UserDataStore = AuthStore{lock: sync.RWMutex{}, userData: map[[32]byte]AuthStoreEntry{}}
+	rconfig.UserDataStore = AuthStore[*ldap.Conn]{lock: sync.RWMutex{}, userData: map[[32]byte]AuthStoreEntry[*ldap.Conn]{}}
 
 	// set DeauthDuration
 	rconfig.DeauthDuration = time.Duration(CConfig.Webserver.UserDeauthTime) * time.Minute
@@ -156,6 +158,7 @@ func cleanupUserData() {
 func main() {
 	err := error(nil)
 	// setup logging
+	zerolog.ErrorStackMarshaler = pkgerrors.MarshalStack
 	output := zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339}
 	output.FormatLevel = func(i interface{}) string {
 		return strings.ToUpper(fmt.Sprintf("| %-6s|", i))
