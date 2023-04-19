@@ -23,13 +23,13 @@ import (
 )
 
 type RuntimeConfig struct {
-	Cipher    cipher.AEAD
-	NonceSize int
-	UserDataStore AuthStore[*ldap.Conn]
-	Templates map[string]*template.Template
-	Static map[string][]byte
+	Cipher         cipher.AEAD
+	NonceSize      int
+	UserDataStore  AuthStore[*ldap.Conn]
+	Templates      map[string]*template.Template
+	Static         map[string][]byte
 	DeauthDuration time.Duration
-	IpRegex *regexp.Regexp
+	IpRegex        *regexp.Regexp
 }
 
 func GenerateNonce(size int) ([]byte, error) {
@@ -58,6 +58,7 @@ func GenerateNonce(size int) ([]byte, error) {
 }
 
 // do some go embed magic to pack web content into the binary
+//
 //go:embed html/*
 var webContent embed.FS
 
@@ -111,7 +112,6 @@ func generateRuntimeConfig(rconfig *RuntimeConfig) *RuntimeConfig {
 	}
 	rconfig.Static["favicon"] = content
 
-
 	//
 	// load templates:
 	//
@@ -150,7 +150,7 @@ var CConfig = new(Config)
 func cleanupUserData() {
 
 	for {
-		time.Sleep(RConfig.DeauthDuration/2)
+		time.Sleep(RConfig.DeauthDuration / 10)
 		RConfig.UserDataStore.Cleanup(RConfig.DeauthDuration)
 	}
 }
@@ -187,7 +187,6 @@ func main() {
 		flag.PrintDefaults()
 		os.Exit(1)
 	}
-
 
 	// load config into global variable
 	err = ReadINI(*configFilePathPtr, CConfig)

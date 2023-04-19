@@ -5,19 +5,19 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"github.com/pkg/errors"
+	"github.com/rs/zerolog/log"
 	"math/big"
 	"net/http"
 	"time"
-	"github.com/pkg/errors"
-	"github.com/rs/zerolog/log"
 )
 
 type AuthCookie struct {
-	Username		 string
-	AdditionalData	 string
-	CreationTime	 int64
-	IP				 string
-	PADDING			 string
+	Username       string
+	AdditionalData string
+	CreationTime   int64
+	IP             string
+	PADDING        string
 }
 
 func getPadding() string {
@@ -54,7 +54,6 @@ func GenerateAuthCookie(user string, additionalData string, remoteAddr string) (
 
 	return httpCookie, cookieData, nil
 }
-
 
 func (cookieData *AuthCookie) ToHttpCookie() (http.Cookie, error) {
 
@@ -104,7 +103,6 @@ func DecodeAuthCookie(cookie *http.Cookie) (AuthCookie, error) {
 		return authCookie, err
 	}
 
-
 	if len(encData) < RConfig.NonceSize {
 		err = errors.New("auth cookie too short")
 		log.Warn().Err(err).Msg("DecodeAuthCookie")
@@ -124,7 +122,7 @@ func DecodeAuthCookie(cookie *http.Cookie) (AuthCookie, error) {
 	// deserialize JSON
 	authCookiePtr := new(AuthCookie)
 	err = json.Unmarshal(decJdata, authCookiePtr)
-	if err != nil || authCookiePtr == nil{
+	if err != nil || authCookiePtr == nil {
 		log.Error().Stack().Err(err).Msg("DecodeAuthCookie")
 		return authCookie, err
 	}

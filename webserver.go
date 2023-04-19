@@ -13,16 +13,16 @@ import (
 // ===================== HTTP routing ===============================
 
 func RunWebServer() {
-	http.Handle("/"				, http.RedirectHandler(CConfig.Webserver.URL+"/login", http.StatusMovedPermanently))
-	http.Handle("/index.html"	, http.RedirectHandler(CConfig.Webserver.URL+"/login", http.StatusMovedPermanently))
+	http.Handle("/", http.RedirectHandler(CConfig.Webserver.URL+"/login", http.StatusMovedPermanently))
+	http.Handle("/index.html", http.RedirectHandler(CConfig.Webserver.URL+"/login", http.StatusMovedPermanently))
 
-	http.HandleFunc("/bootstrap.min.css"	, serveCssBootstrap)
-	http.HandleFunc("/logo.svg"				, serveLogo)
-	http.HandleFunc("/favicon.ico"			, serveFavicon)
-	http.HandleFunc("/login"				, loginHandler)
-	http.HandleFunc("/logout"				, logoutHandler)
-	http.HandleFunc("/change_pwd"			, changePasswordHandler)
-	http.HandleFunc("/change_pwd_success"	, changePasswordSuccessHandler)
+	http.HandleFunc("/bootstrap.min.css", serveCssBootstrap)
+	http.HandleFunc("/logo.svg", serveLogo)
+	http.HandleFunc("/favicon.ico", serveFavicon)
+	http.HandleFunc("/login", loginHandler)
+	http.HandleFunc("/logout", logoutHandler)
+	http.HandleFunc("/change_pwd", changePasswordHandler)
+	http.HandleFunc("/change_pwd_success", changePasswordSuccessHandler)
 
 	log.Info().Msg("Starting server at " + CConfig.Webserver.ListenAddress)
 	if err := http.ListenAndServe(CConfig.Webserver.ListenAddress, nosurf.New(http.DefaultServeMux)); err != nil {
@@ -43,7 +43,6 @@ func serveFavicon(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Content-Type", "image/x-icon")
 	w.Write(RConfig.Static["favicon"])
 }
-
 
 // ============== serve dynamic stuff ===============================
 func loginHandler(w http.ResponseWriter, r *http.Request) {
@@ -139,7 +138,7 @@ func logout(w http.ResponseWriter, r *http.Request) {
 	for _, c := range cookies {
 		if c.Name == "auth" {
 			decCookie, err := DecodeAuthCookie(c)
-			if err != nil  {
+			if err != nil {
 				log.Error().Stack().Err(err).Msg("logout")
 				http.SetCookie(w, &deauthCookie)
 				return
@@ -282,32 +281,34 @@ func changePasswordHandler(w http.ResponseWriter, r *http.Request) {
 					http.Error(w, "500 Internal Server Error", http.StatusInternalServerError)
 					return
 				}
-			}
+			} else {
 
-			pwdModReq := ldap.NewPasswordModifyRequest(dn, oldPassword, newPassword)
+				pwdModReq := ldap.NewPasswordModifyRequest(dn, oldPassword, newPassword)
 
-			_, err = conn.PasswordModify(pwdModReq)
-			if err != nil {
-				log.Error().Err(err).Msg("changePasswordHandler")
-				ctx["invalid"] = err.Error()
-				err = RConfig.Templates["change_pwd_form"].Execute(w, ctx)
+				_, err = conn.PasswordModify(pwdModReq)
+				if err != nil {
+					log.Error().Err(err).Msg("changePasswordHandler")
+					ctx["invalid"] = err.Error()
+					err = RConfig.Templates["change_pwd_form"].Execute(w, ctx)
+					if err != nil {
+						log.Error().Err(err).Msg("changePasswordHandler")
+						http.Error(w, "500 Internal Server Error", http.StatusInternalServerError)
+						return
+					}
+					return
+				}
+				// Password change was successful
+				log.Info().Msg("changePasswordHandler: successfully changed password")
+				ctx = map[string]string{"url": CConfig.Webserver.URL + "/change_pwd_success"}
+				err = RConfig.Templates["redirect"].Execute(w, ctx)
 				if err != nil {
 					log.Error().Err(err).Msg("changePasswordHandler")
 					http.Error(w, "500 Internal Server Error", http.StatusInternalServerError)
 					return
 				}
-				return
-			}
-			// Password change was successful
-			log.Info().Msg("changePasswordHandler: successfully changed password")
-			ctx = map[string]string{"url": CConfig.Webserver.URL + "/change_pwd_success"}
-			err = RConfig.Templates["redirect"].Execute(w, ctx)
-			if err != nil {
-				log.Error().Err(err).Msg("changePasswordHandler")
-				http.Error(w, "500 Internal Server Error", http.StatusInternalServerError)
-				return
 			}
 			return
+
 		}
 	} else if r.Method == "GET" {
 		/******************************************************************************************************

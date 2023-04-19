@@ -11,16 +11,15 @@ import (
 )
 
 type AuthStoreEntry[UD any] struct {
-	userName string
+	userName  string
 	timeStamp int64
-	userData UD
+	userData  UD
 }
 
 type AuthStore[UD any] struct {
-    userData map[[32]byte]AuthStoreEntry[UD]
-	lock sync.RWMutex
+	userData map[[32]byte]AuthStoreEntry[UD]
+	lock     sync.RWMutex
 }
-
 
 func CreateAuthStoreID(userName string, timeStamp int64) [32]byte {
 	input := fmt.Sprintf("%s %d", userName, timeStamp)
@@ -35,10 +34,10 @@ func (as *AuthStore[UD]) Add(userName string, timeStamp int64, userData UD) ([32
 	_, isPresent := as.userData[id]
 	if isPresent {
 		err = errors.New("entry already in AuthStore")
-		log.Warn().Bytes("id",id[:]).Err(err).Msg("AuthStore.Add")
+		log.Warn().Bytes("id", id[:]).Err(err).Msg("AuthStore.Add")
 	} else {
 		as.userData[id] = AuthStoreEntry[UD]{userName, timeStamp, userData}
-		log.Debug().Bytes("id",id[:]).Msg("AuthStore.Add")
+		log.Debug().Bytes("id", id[:]).Msg("AuthStore.Add")
 	}
 	as.lock.Unlock()
 	return id, err
@@ -97,7 +96,7 @@ func (as *AuthStore[UD]) GetUserDataFromId(authStoreId [32]byte) (UD, error) {
 	asEntry, isPresent := as.userData[authStoreId]
 	as.lock.RUnlock()
 	var err error = nil
-	if isPresent{
+	if isPresent {
 		log.Debug().Bytes("id", authStoreId[:]).Msg("AuthStore.GetUserDataFromId: entry found")
 	} else {
 		err = errors.New("no data is associated with this id")
@@ -121,7 +120,7 @@ func (as *AuthStore[UD]) PopUserDataFromId(authStoreId [32]byte) (UD, error) {
 	asEntry, isPresent := as.userData[authStoreId]
 
 	var err error = nil
-	if isPresent{
+	if isPresent {
 		delete(as.userData, authStoreId)
 		log.Debug().Bytes("id", authStoreId[:]).Msg("AuthStore.PopUserDataFromId: entry popped")
 	} else {
@@ -149,4 +148,3 @@ func (as *AuthStore[UD]) DeleteEntry(authStoreId [32]byte) error {
 	as.lock.Unlock()
 	return err
 }
-
