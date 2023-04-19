@@ -156,7 +156,13 @@ func cleanupUserData() {
 }
 
 func main() {
-	err := error(nil)
+	var err error = nil
+
+	// parse command line variables
+	var configFilePathPtr = flag.String("c", "goldap.ini", "CConfig file path")
+	var logLevelString = flag.String("ll", "warn", "Loglevel: [debug, info, warn, error, fatal]")
+	flag.Parse()
+
 	// setup logging
 	zerolog.ErrorStackMarshaler = pkgerrors.MarshalStack
 	output := zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339}
@@ -165,11 +171,23 @@ func main() {
 	}
 	log.Logger = log.With().Caller().Logger()
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stdout})
-	log.Logger = log.Level(zerolog.DebugLevel)
+	switch strings.ToLower(*logLevelString) {
+	case "debug":
+		log.Logger = log.Level(zerolog.DebugLevel)
+	case "info":
+		log.Logger = log.Level(zerolog.InfoLevel)
+	case "warn":
+		log.Logger = log.Level(zerolog.WarnLevel)
+	case "error":
+		log.Logger = log.Level(zerolog.ErrorLevel)
+	case "fatal":
+		log.Logger = log.Level(zerolog.FatalLevel)
+	default:
+		fmt.Fprintf(os.Stderr, "%s %s\n", "flag provided but argument invalid: -ll", *logLevelString)
+		flag.PrintDefaults()
+		os.Exit(1)
+	}
 
-	// parse command line variables
-	var configFilePathPtr = flag.String("c", "goldap.ini", "CConfig file path")
-	flag.Parse()
 
 	// load config into global variable
 	err = ReadINI(*configFilePathPtr, CConfig)
