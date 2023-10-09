@@ -8,6 +8,14 @@ This is a minimal go ldap frontend for users to change their password.
 
 **This frontend is intended to run behind a reverse proxy and has no native TLS/SSL support!**
 
+## Getting Started
+
+```sh
+go build
+
+./goldap
+```
+
 
 ## Licence
 
