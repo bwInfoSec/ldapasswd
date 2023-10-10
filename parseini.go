@@ -2,10 +2,11 @@ package main
 
 import (
 	"fmt"
+	"os"
+
 	"github.com/go-playground/validator/v10"
 	"github.com/rs/zerolog/log"
 	"gopkg.in/ini.v1"
-	"os"
 )
 
 // Configuration struct for general app configuration values
@@ -16,7 +17,8 @@ type Config struct {
 		ListenAddress   string `validate:"required,tcp_addr"`
 		PageTitlePrefix string `validate:"required"`
 	}
-	LDAP struct {
+	Information string
+	LDAP        struct {
 		Server struct {
 			Host          string `validate:"required,hostname"`
 			Port          uint   `validate:"required,gt=0,lte=65535"`
@@ -65,6 +67,11 @@ func ReadINI(configPath string, configPointer *Config) error {
 		log.Error().Err(err).Msg("ReadINI")
 		return err
 	}
+	err = readContent(cfg, configPointer)
+	if err != nil {
+		log.Error().Err(err).Msg("ReadINI")
+		return err
+	}
 
 	validate := validator.New()
 
@@ -94,6 +101,15 @@ func readWebserver(cfg *ini.File, configPointer *Config) error {
 	configPointer.Webserver.URL = cfg.Section("webserver").Key("url").String()
 	configPointer.Webserver.ListenAddress = cfg.Section("webserver").Key("listen_address").String()
 	configPointer.Webserver.PageTitlePrefix = cfg.Section("webserver").Key("page_title_prefix").String()
+	configPointer.Information = cfg.Section("content").Key("information").String()
+
+	return err
+}
+
+func readContent(cfg *ini.File, configPointer *Config) error {
+	err := error(nil)
+
+	configPointer.Information = cfg.Section("content").Key("information").String()
 
 	return err
 }
