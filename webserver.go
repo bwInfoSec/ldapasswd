@@ -3,6 +3,7 @@ package main
 import (
 	_ "embed"
 	"fmt"
+	"html/template"
 	"net/http"
 
 	"github.com/go-ldap/ldap"
@@ -48,10 +49,11 @@ func serveFavicon(w http.ResponseWriter, r *http.Request) {
 func loginHandler(w http.ResponseWriter, r *http.Request) {
 
 	// create context for template
-	ctx := make(map[string]string)
+	ctx := make(map[string]any)
 	ctx["token"] = nosurf.Token(r)
 	ctx["send_to"] = "/login"
 	ctx["title_prefix"] = CConfig.Webserver.PageTitlePrefix
+	ctx["information"] = template.HTML(CConfig.Information)
 
 	if r.Method == "POST" {
 		if err := r.ParseForm(); err != nil {
